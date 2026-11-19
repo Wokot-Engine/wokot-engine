@@ -700,6 +700,7 @@ class Godot private constructor(val context: Context) {
 			return
 		}
 
+		godotInputHandler.onActivityResumed()
 		renderView?.onActivityResumed()
 		registerSensorsIfNeeded()
 		for (plugin in pluginRegistry.allPlugins) {
@@ -746,6 +747,8 @@ class Godot private constructor(val context: Context) {
 		for (plugin in pluginRegistry.allPlugins) {
 			plugin.onMainPause()
 		}
+
+		godotInputHandler.onActivityPaused()
 		renderView?.onActivityPaused()
 		mSensorManager?.unregisterListener(godotInputHandler)
 	}
@@ -784,18 +787,19 @@ class Godot private constructor(val context: Context) {
 	/**
 	 * Configuration change callback
 	*/
-	fun onConfigurationChanged(newConfig: Configuration) {
+	@JvmOverloads
+	fun onConfigurationChanged(newConfig: Configuration, force: Boolean = false) {
 		godotInputHandler.onConfigurationChanged(newConfig)
 
 		val newDarkMode = newConfig.uiMode.and(Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-		if (darkMode != newDarkMode) {
+		if (force || darkMode != newDarkMode) {
 			darkMode = newDarkMode
 			runOnRenderThread {
 				GodotLib.onNightModeChanged()
 			}
 		}
 
-		if (orientation != newConfig.orientation) {
+		if (force || orientation != newConfig.orientation) {
 			orientation = newConfig.orientation
 			runOnRenderThread {
 				GodotLib.onOrientationChange(orientation)
@@ -855,7 +859,7 @@ class Godot private constructor(val context: Context) {
 		Log.v(TAG, "OnGodotSetupCompleted")
 
 		// These properties are defined after Godot setup completion, so we retrieve them here.
-		val longPressEnabled = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_long_press_as_right_click"))
+		val rightClickEmulataionEnabled = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_long_press_as_right_click"))
 		val panScaleEnabled = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/enable_pan_and_scale_gestures"))
 		val rotaryInputAxisValue = GodotLib.getGlobal("input_devices/pointing/android/rotary_input_scroll_axis")
 		val overrideVolumeButtons = java.lang.Boolean.parseBoolean(GodotLib.getGlobal("input_devices/pointing/android/override_volume_buttons"))
@@ -863,7 +867,7 @@ class Godot private constructor(val context: Context) {
 
 		runOnHostThread {
 			godotInputHandler.apply {
-				enableLongPress(longPressEnabled)
+				enableRightClickEmulation(rightClickEmulataionEnabled)
 				enablePanningAndScalingGestures(panScaleEnabled)
 				setOverrideVolumeButtons(overrideVolumeButtons)
 				disableScrollDeadzone(scrollDeadzoneDisabled)
@@ -900,6 +904,7 @@ class Godot private constructor(val context: Context) {
 			getActivity()?.reportFullyDrawn()
 
 			registerSensorsIfNeeded()
+			onConfigurationChanged(context.resources.configuration, true)
 		}
 
 		for (plugin in pluginRegistry.allPlugins) {
