@@ -1,5 +1,11 @@
 name: 🔗 GHA
-on: [push, pull_request, merge_group, workflow_dispatch]
+on:
+  push:
+    branches: ['wokot']
+  pull_request:
+    branches: ['**']
+  merge_group:
+    branches: ['**']
 
 concurrency:
   group: ${{ github.workflow }}|${{ github.ref_name }}
